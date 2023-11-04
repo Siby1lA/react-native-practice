@@ -1,5 +1,6 @@
-import {FlatList, Image, Text, View} from 'react-native';
-import {useQuery, gql} from '@apollo/client';
+import {Button, FlatList, Image, Text, TextInput, View} from 'react-native';
+import {useMutation, useQuery, gql} from '@apollo/client';
+import {useState} from 'react';
 
 type ItemType = {
   item: {
@@ -11,6 +12,8 @@ type ItemType = {
 };
 
 function Home(): JSX.Element {
+  const [text, onChangeText] = useState('');
+
   const GET_LOCATIONS = gql`
     query GetLocations {
       locations {
@@ -22,7 +25,23 @@ function Home(): JSX.Element {
     }
   `;
 
-  const {loading, error, data} = useQuery(GET_LOCATIONS);
+  const ADD_TODO = gql`
+    mutation AddTodo($type: String!) {
+      addTodo(type: $type) {
+        id
+        type
+      }
+    }
+  `;
+
+  const {
+    data: locationsData,
+    loading: locationsLoading,
+    error: locationsError,
+  } = useQuery(GET_LOCATIONS);
+
+  const [addTodo, {data: todoData, loading: todoLoading, error: todoError}] =
+    useMutation(ADD_TODO);
 
   const Item = ({item}: ItemType) => (
     <View>
@@ -33,15 +52,35 @@ function Home(): JSX.Element {
     </View>
   );
 
-  if (loading) return <Text>Loading...</Text>;
-  if (error) return <Text>Error : {error.message}</Text>;
+  if (locationsLoading && todoLoading) return <Text>Loading...</Text>;
+  if (locationsError || todoError)
+    return (
+      <Text>
+        Error : {locationsError?.message}
+        {todoError?.message}
+      </Text>
+    );
 
   return (
-    <FlatList
-      data={data.locations}
-      renderItem={Item}
-      keyExtractor={item => item.id}
-    />
+    <View>
+      <TextInput
+        onChangeText={onChangeText}
+        value={text}
+        placeholder="Add todo..."
+      />
+      <Button
+        title="send"
+        onPress={() => {
+          addTodo({variables: {type: text}});
+          onChangeText('');
+        }}
+      />
+      <FlatList
+        data={locationsData?.locations}
+        renderItem={Item}
+        keyExtractor={item => item.id}
+      />
+    </View>
   );
 }
 
